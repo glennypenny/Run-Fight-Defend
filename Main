@@ -1,0 +1,100 @@
+extends Node2D
+
+var backgrounds = {
+	Vector2(0,0): preload("res://assets/dungeon1.png"),
+	Vector2(0,1): preload("res://assets/dungeon2.jpg"),
+	Vector2(0,2): preload("res://assets/dungeon3.jpg"),
+	Vector2(1,0): preload("res://assets/dungeon7.jpeg"),
+	Vector2(1,1): preload("res://assets/dungeon2.jpg"),
+	Vector2(1,2): preload("res://assets/dungeon1.png"),
+	Vector2(2,0): preload("res://assets/dungeon1.png"),
+	Vector2(2,1): preload("res://assets/dungeon1.png"),
+	Vector2(2,2): preload("res://assets/dungeon1.png"),
+}
+
+@onready var bg = $BackgroundSprite
+@onready var player = $Player         # Player node with grid_pos and movement functions
+@onready var enemy = $Enemy           # Enemy sprite node
+@onready var combat_ui = $CombatUI    # Combat UI container
+@onready var result_label = $UI/CombatUI/ResultLabel
+@onready var message_label = $UI/MessageLabel
+@onready var position_label = $UI/PositionLabel  # Label to show player grid position
+
+var enemy_action = ""
+
+func _process(_delta):
+	print("Player grid_pos: ", player.grid_pos)
+	# Update background based on player position
+	if backgrounds.has(player.grid_pos):
+		var tex = backgrounds[player.grid_pos]
+		if tex:
+			bg.texture = tex
+			print("Background set for position ", player.grid_pos)
+		else:
+			print("Texture missing for position ", player.grid_pos)
+			bg.texture = null
+	else:
+		print("No background found for position ", player.grid_pos)
+		bg.texture = null
+
+	# Update the grid position label (assuming 3x3 grid)
+	var pos = player.grid_pos
+	var grid_number = pos.x * 3 + pos.y + 1
+	position_label.text = "%d / 9" % grid_number
+
+
+# Movement button callbacks
+func _on_forwardbutton_pressed():
+	player.move_forward()
+	check_for_enemy()
+
+func _on_backwardbutton_pressed():
+	player.move_backward()
+	check_for_enemy()
+
+func _on_turnleftbutton_pressed():
+	player.turn_left()
+	check_for_enemy()
+
+func _on_turnrightbutton_pressed():
+	player.turn_right()
+	check_for_enemy()
+
+func check_for_enemy():
+	if randi() % 4 == 0:  # 25% chance
+		start_combat()
+
+func start_combat():
+	enemy.visible = true
+	combat_ui.visible = true
+	enemy_action = ["Fight", "Defend", "Run"].pick_random()
+	message_label.text = "A wild monster appears!"
+
+func _on_fightbutton_pressed():
+	resolve_combat("Fight")
+
+func _on_defendbutton_pressed():
+	resolve_combat("Defend")
+
+func _on_runbutton_pressed():
+	resolve_combat("Run")
+
+func resolve_combat(player_action):
+	var result = "Draw"
+	if player_action == "Fight" and enemy_action == "Run":
+		result = "Win"
+	elif player_action == "Defend" and enemy_action == "Fight":
+		result = "Win"
+	elif player_action == "Run" and enemy_action == "Defend":
+		result = "Win"
+	elif player_action != enemy_action:
+		result = "Lose"
+
+	result_label.text = "You chose %s, enemy chose %s: %s" % [player_action, enemy_action, result]
+	print(result_label.text)
+
+	# Hide combat UI and enemy after 2 seconds
+	await get_tree().create_timer(2.0).timeout
+	enemy.visible = false
+	combat_ui.visible = false
+	message_label.text = ""
